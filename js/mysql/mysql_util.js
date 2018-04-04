@@ -7,6 +7,12 @@ var mysql = require('mysql');
 // var password = "";
 // var host = "localhost";
 
+mysql_util.connectionCredentials = {
+    host: "localhost",
+    user: "root",
+    password: "",
+    database: "zohooauth"
+};
 
 mysql_util.saveOAuthData = function(config_obj){
 
@@ -140,16 +146,7 @@ mysql_util.deleteOAuthTokens = function(){
 
 function getConnection(){
 
-    var con = mysql.createConnection({
-
-            host: "localhost",
-            user: "root",
-            password: "",
-            database: "zohooauth"
-
-        });
-
-        return con;
+    return mysql.createConnection(mysql_util.connectionCredentials);
 
 }
 
