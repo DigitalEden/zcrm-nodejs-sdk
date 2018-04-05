@@ -5,7 +5,8 @@ var client_id = null;
 var client_secret = null;
 var redirect_url = null;
 var user_identifier = null;
-var mysql_module = "./mysql/mysql_util" ;
+var mysql_module = "./mysql/mysql_util" ; // false value for working without DB
+var access_token = null;
 var iamurl = "accounts.zoho.com";
 var baseURL = "www.zohoapis.com";
 var version = "v2";
@@ -97,24 +98,24 @@ var version = "v2";
             throw new Error("Problem occured while generating access token from grant token");
 
         }
-           
-        var mysql_util = require(mysql_module);
+        
+        var mysql_util = mysql_module?require(mysql_module):mysql_module;
         var resultObj = ZCRMRestClient.parseAndConstructObject(response);
         resultObj.user_identifier = user_identifier;
        
         if(resultObj.access_token){
-
-            mysql_util.saveOAuthData(resultObj).then(
+            if(mysql_util){
+                mysql_util.saveOAuthData(resultObj);
+            }
             
-             ZCRMRestClient.setUserIdentifier(user_identifier),
+            ZCRMRestClient.setUserIdentifier(user_identifier);
+            resolve(resultObj);
              
-             resolve(resultObj)
-             
-
-         );
-        }
+        } else {
         
-        throw new Error("Problem occured while generating access token and refresh token from grant token");
+            throw new Error("Problem occured while generating access token and refresh token from grant token");
+            
+        }
 
     })
 })
@@ -130,36 +131,37 @@ ZCRMRestClient.generateAuthTokenfromRefreshToken = function(user_identifier,refr
             user_identifier = ZCRMRestClient.getUserIdentifier();
         }
 
-    var config = ZCRMRestClient.getConfig_refresh(refresh_token);
-    new OAuth(config,"refresh_access_token");
-    var api_url = OAuth.constructurl("generate_token");
+        var config = ZCRMRestClient.getConfig_refresh(refresh_token);
+        new OAuth(config,"refresh_access_token");
+        var api_url = OAuth.constructurl("generate_token");
 
-    OAuth.generateTokens(api_url).then(function(response){
+        OAuth.generateTokens(api_url).then(function(response){
         
-        if(response.statusCode!=200){
+            if(response.statusCode!=200){
 
-            throw new Error("Problem occured while generating access token from refresh token");
+                throw new Error("Problem occured while generating access token from refresh token");
 
-        }
-        var mysql_util = require(mysql_module);
-        var resultObj = ZCRMRestClient.parseAndConstructObject(response);
-        resultObj.user_identifier = user_identifier;
+            }
+            var mysql_util = mysql_module ? require(mysql_module) : mysql_module;
+            var resultObj = ZCRMRestClient.parseAndConstructObject(response);
+            resultObj.user_identifier = user_identifier;
        
-        if(resultObj.access_token){
-
-            mysql_util.saveOAuthData(resultObj).then(
+            if(resultObj.access_token){
             
-             ZCRMRestClient.setUserIdentifier(user_identifier),
-             resolveObj.success = true,
-             resolveObj.response = resultObj,
-             resolve(resultObj)
-             
-
-         );
-
-         throw new Error("Problem occured while generating access token from refresh token");
+                if(mysql_util){
+                    mysql_util.saveOAuthData(resultObj);
+                }
+            
+                ZCRMRestClient.setUserIdentifier(user_identifier);
+                //resolveObj.success = true,
+                //resolveObj.response = resultObj,
+                resolve(resultObj);
          
-        }
+            } else {
+            
+                throw new Error("Problem occured while generating access token from refresh token");
+            
+            }
         
     })
 })
@@ -225,6 +227,16 @@ ZCRMRestClient.setBaseURL = function(baseurl){
     baseURL = baseurl;
 }
 
+ZCRMRestClient.setSqlModule = function(module) {
+    
+    mysql_module = module;
+}
+
+ZCRMRestClient.setAccessToken = function(token) {
+    
+    access_token = token;
+} 
+
 ZCRMRestClient.getClientId = function(){
 
     return client_id;
@@ -261,10 +273,22 @@ ZCRMRestClient.getVersion = function(){
 
     return version;
 }
+
 ZCRMRestClient.getIAMUrl = function(){
 
     return iamurl;
 }
+
+ZCRMRestClient.getAccessToken = function(){
+    
+    return access_token;
+}
+
+ZCRMRestClient.getMySQLModule = function(){
+
+    return mysql_module;
+}
+
 ZCRMRestClient.parseAndConstructObject = function(response){
 
     var body = response["body"];

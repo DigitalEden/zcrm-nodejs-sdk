@@ -5,46 +5,44 @@ function promiseResponse(request) {
     var OAuth = require('./OAuth');
    
     return new Promise(function(resolve,reject){
-    var mysql_util = require(crmclient.getMySQLModule());
-
-    mysql_util.getOAuthTokens().then(function(response){
-
-    var date = new Date();
-    var current_time = date.getTime();
+    var mysql_module = crmclient.getMySQLModule(); 
+    var mysql_util = mysql_module?require(mysql_module):mysql_module;
     
-    var expires_in = response[0].expirytime;
-    var refresh_token = response[0].refreshtoken;
-
-    if(current_time > expires_in){
-
-        var config = crmclient.getConfig_refresh(refresh_token)
+    isMysql : if (mysql_util) {
+        response = mysql_util.getOAuthTokens();
         
-        new OAuth(config,'refresh_access_token');
-        var url = OAuth.constructurl('generate_token');
+        var date = new Date();
+        var current_time = date.getTime();
 
-        OAuth.generateTokens(url).then(function(response){
+        var expires_in = response[0].expirytime;
+        var refresh_token = response[0].refreshtoken;
 
-        var result_obj = crmclient.parseAndConstructObject(response);
+        if(current_time > expires_in){
 
-         mysql_util.updateOAuthTokens(result_obj).then(function(response){
+            var config = crmclient.getConfig_refresh(refresh_token)
 
-         makeapicall(request).then(function(response){
+            new OAuth(config,'refresh_access_token');
+            var url = OAuth.constructurl('generate_token');
 
-         resolve(response);
-         
-        })
-    });
-    })
+            OAuth.generateTokens(url).then(function(response){
+
+                var result_obj = crmclient.parseAndConstructObject(response);
+
+                mysql_util.updateOAuthTokens(result_obj).then(function(response){
+
+                    makeapicall(request).then(function(response){
+
+                        resolve(response);
+
+                    })
+                });
+            })
+        }
+        break isMysql;
     }
 
-    else{
-
-        makeapicall(request).then(function(response){
-
-         resolve(response);
-
-        })
-    }
+    makeapicall(request).then(function(response){
+        resolve(response);
     })
     })
 }
@@ -57,11 +55,12 @@ function makeapicall(request){
      var crmclient = require('./ZCRMRestClient');   
      var httpclient = require('request');
      var OAuth = require('./OAuth');
-     var mysql_util = require(crmclient.getMySQLModule());
+     var mysql_module = crmclient.getMySQLModule(); 
+     var mysql_util = mysql_module?require(mysql_module):mysql_module;
      var qs = require('querystring');
    
-    mysql_util.getOAuthTokens(crmclient.getUserIdentifier()).then(function(result_obj){
-    var access_token = result_obj[0].accesstoken;
+    var access_token = mysql_util ? mysql_util.getOAuthTokens(crmclient.getUserIdentifier())[0].accesstoken : crmclient.getAccessToken();
+    
     var baseUrl = "https://"+crmclient.getAPIURL()+"/crm/"+crmclient.getVersion() +"/"+ request.url;
     if (request.params) 
         {
@@ -70,7 +69,7 @@ function makeapicall(request){
 
 
         var api_headers = {};
-        var encoding ="";
+        var encoding ="utf-8";  //With emtpy string value throw and error buffer.js string 621
         var req_body = null;
         var formData = null;
 
@@ -156,7 +155,6 @@ function makeapicall(request){
     }
     });
 
-    })
 })
     
 }
